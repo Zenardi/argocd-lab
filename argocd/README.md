@@ -8,6 +8,16 @@
 - [Deploying First App](#deploying-first-app)
   - [📝 Overview \& Concepts](#-overview--concepts-2)
   - [📋 Tasks](#-tasks-2)
+- [Deploying with Helm Charts](#deploying-with-helm-charts)
+  - [🎯 Lab Goal](#-lab-goal)
+  - [📝 Overview \& Concepts](#-overview--concepts-3)
+  - [📋 Lab Tasks](#-lab-tasks)
+- [Deploy Public Available Helm Chart](#deploy-public-available-helm-chart)
+  - [🎯 Lab Goal](#-lab-goal-1)
+  - [📝 Overview \& Concepts](#-overview--concepts-4)
+  - [📋 Lab Tasks](#-lab-tasks-1)
+  - [🔍 Key Differences from Git-based Charts](#-key-differences-from-git-based-charts)
+    - [Accessing the Dashboard](#accessing-the-dashboard)
 - [📚 Helpful Resources](#-helpful-resources)
 
 
@@ -122,6 +132,130 @@ kubectl apply -f guestbook-app.yaml
 
 ![firstapp](../imgs/argocd-first-app.png)
 
+# Deploying with Helm Charts
+
+## 🎯 Lab Goal
+
+Refactor an existing Argo CD `Application` to deploy the same application, but this time from a Helm chart located within our Git repository.
+
+## 📝 Overview & Concepts
+
+Deploying applications from plain YAML is great, but many real-world applications are packaged as Helm charts to manage complexity and templating. In this lab, you'll learn how to adapt an Argo CD `Application` manifest to deploy from a Helm chart instead of a directory of raw manifests.
+
+We will be using a pre-made Helm chart for our `guestbook` application, which is already located in our examples repository. You will modify your existing `guestbook-app.yaml` manifest, changing the `spec.source` to point to this Helm chart, and observe as Argo CD seamlessly transitions the live application to be managed by the chart.
+
+## 📋 Lab Tasks
+
+1.  Explore the `helm-guestbook` directory in your `argocd-example-apps` repository to familiarize yourself with the simple Helm chart structure.
+2.  Open your `guestbook-app.yaml` manifest for editing.
+3.  Modify the `spec.source` section of the manifest:
+    - Change the `repoURL` to point to your own fork of `lm-academy/argocd-example-apps` repository.
+    - Set the `path` to `helm-guestbook`.
+    - Add a new `helm` block.
+    - Inside the `helm` block, add a `valueFiles` entry pointing to the chart's default `values.yaml` file.
+4.  Apply the updated manifest to the cluster.
+5.  Open the Argo CD UI and wait for the application to be considered `OutOfSync`.
+6.  Trigger a `Sync` operation and observe in the Argo CD UI as the application syncs. Notice that although the source has fundamentally changed, the deployed resources remain the same, demonstrating Argo CD's powerful diffing capabilities.
+7.  Verify with `kubectl` that the `guestbook` pods are still running correctly.
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook-helm
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Zenardi/argocd-example-apps.git
+    targetRevision: HEAD
+    path: helm-guestbook
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+```
+
+![firstapp-helm](../imgs/argocd-first-app-helm.png)
+
+# Deploy Public Available Helm Chart
+
+## 🎯 Lab Goal
+
+Deploy an application to your cluster using Argo CD from a publicly available Helm chart repository, specifically the Kubernetes Dashboard.
+
+## 📝 Overview & Concepts
+
+While Git repositories containing Helm charts are common, many applications are distributed through public Helm chart repositories. Argo CD can seamlessly deploy applications from these public repositories, such as Bitnami charts, official Kubernetes charts, and many others.
+
+In this lab, you'll learn how to configure an Argo CD `Application` to deploy from a public Helm repository. Instead of pointing to a Git repository with a `path` to a chart directory, you'll use the `chart` field to reference a chart by name and specify the chart repository URL.
+
+We will deploy the Kubernetes Dashboard, a web-based UI for Kubernetes cluster management, which is hosted in the official Kubernetes Helm chart repository.
+
+## 📋 Lab Tasks
+
+1.  Create a new namespace named `k8s-dashboard`.
+2.  Create a new Argo CD `Application` manifest file named `k8s-dashboard-app.yaml`.
+3.  Configure the `spec.source` section to deploy from a public Helm repository:
+    - Set the `repoURL` to `https://kubernetes.github.io/dashboard/` (the Kubernetes Dashboard Helm repository).
+    - Instead of using `path`, use the `chart` field and set it to `kubernetes-dashboard`.
+    - Set `targetRevision` to `7.13.0` to pin to a specific chart version.
+4.  Configure the `spec.destination` section:
+    - Set `server` to `https://kubernetes.default.svc` (the in-cluster API server).
+    - Set `namespace` to `k8s-dashboard` (or your preferred namespace).
+5.  Apply the manifest to create the Argo CD Application.
+6.  Open the Argo CD UI and observe the application being synced.
+7.  Once synced, verify the Kubernetes Dashboard pods are running using `kubectl`.
+8.  (Optional) Access the Kubernetes Dashboard by port-forwarding to the service and exploring the UI.
+
+```shell
+kubectl create ns k8s-dashboard
+
+```
+
+## 🔍 Key Differences from Git-based Charts
+
+When deploying from a public Helm repository instead of a Git repository:
+
+- **`repoURL`**: Points to the Helm chart repository URL (not a Git repository)
+- **`chart`**: Specifies the chart name (replaces the `path` field used for Git repos)
+- **`targetRevision`**: Refers to the chart version (not a Git commit/branch/tag)
+
+
+### Accessing the Dashboard
+
+Port-forward to access the dashboard locally:
+
+```bash
+kubectl port-forward svc/k8s-dashboard-kong-proxy 8443:443 -n k8s-dashboard
+```
+
+Then access the dashboard at: `https://localhost:8443`
+
+**Note:** You'll need to create a service account and token to log in:
+
+```bash
+# Create a service account
+kubectl create serviceaccount k8s-dashboard-admin -n k8s-dashboard
+
+# Create a cluster role binding
+kubectl create clusterrolebinding k8s-dashboard-admin \
+  --clusterrole=cluster-admin \
+  --serviceaccount=k8s-dashboard:k8s-dashboard-admin
+
+# Get the token
+kubectl create token k8s-dashboard-admin -n k8s-dashboard
+```
+
+Use the generated token to log in to the dashboard.
+
+
+
+---
+---
+
 # 📚 Helpful Resources
 - [Argo CD - Getting Started Guide](https://argo-cd.readthedocs.io/en/stable/getting_started/)
 - [Helm `install` Command Documentation](https://helm.sh/docs/helm/helm_install/)
@@ -134,3 +268,8 @@ kubectl apply -f guestbook-app.yaml
 - [Declarative Setup in Argo CD](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/)
 - [The `argocd-example-apps` Repository](https://github.com/argoproj/argocd-example-apps)
 - [My Fork of the `argocd-example-apps` Repository](https://github.com/lm-academy/argocd-example-apps)
+- [Argo CD - Helm Chart Documentation](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/)
+- [Helm `valueFiles` Documentation](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/#values-files)
+- [Argo CD - Helm Chart Documentation](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/)
+- [Kubernetes Dashboard Helm Chart](https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard)
+- [Argo CD Application Specification](https://argo-cd.readthedocs.io/en/stable/operator-manual/application.yaml)
