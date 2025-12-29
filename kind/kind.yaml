@@ -1,0 +1,14 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: argocd-cluster
+nodes:
+- role: control-plane
+- role: worker
+  labels:
+    name: node-01
+- role: worker
+  labels:
+    name: node-02
+
+# kind create cluster --config kind.yaml
+# kind delete cluster --name argocd-cluster
