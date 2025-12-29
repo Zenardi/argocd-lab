@@ -40,7 +40,18 @@
   - [📋 Lab Tasks](#-lab-tasks-4)
   - [📚 Helpful Resources](#-helpful-resources-2)
   - [💭 Reflection Questions](#-reflection-questions)
-- [📚 Helpful Resources](#-helpful-resources-3)
+- [Connect to Private Repos Using HTTPS](#connect-to-private-repos-using-https)
+  - [🎯 Lab Goal](#-lab-goal-5)
+  - [📝 Overview \& Concepts](#-overview--concepts-8)
+  - [📋 Lab Tasks](#-lab-tasks-5)
+  - [🔍 Key Concepts](#-key-concepts)
+  - [📚 Helpful Resources](#-helpful-resources-3)
+- [Connect to Private Repos Using SSH](#connect-to-private-repos-using-ssh)
+  - [🎯 Lab Goal](#-lab-goal-6)
+  - [📝 Overview \& Concepts](#-overview--concepts-9)
+  - [📋 Lab Tasks](#-lab-tasks-6)
+  - [📚 Helpful Resources](#-helpful-resources-4)
+- [📚 Helpful Resources](#-helpful-resources-5)
 
 
 # Install Argo on K8S Cluster with Helm
@@ -432,6 +443,107 @@ In this lab, you will enable the `selfHeal` policy on your `guestbook` applicati
 1. Why does automated sync alone not fix configuration drift (manual cluster changes), and how does self-healing complete the GitOps enforcement loop?
 2. What are the potential risks of enabling pruning in a shared namespace where multiple teams deploy applications, and how would you mitigate these risks?
 3. Under what circumstances might you want to temporarily disable self-healing in production, and what are the trade-offs of doing so?
+
+# Connect to Private Repos Using HTTPS
+## 🎯 Lab Goal
+
+Connect Argo CD to a private Git repository using HTTPS authentication with a username and Personal Access Token (PAT).
+
+## 📝 Overview & Concepts
+
+In production environments, your GitOps repositories will almost always be private. Argo CD needs credentials to access these repositories. The simplest authentication method is using HTTPS with a username and Personal Access Token (PAT).
+
+A Personal Access Token is like a password, but it's designed for applications rather than humans. It can be scoped with specific permissions (like read-only access to repositories) and can be easily revoked if compromised. This makes PATs much safer than using your actual password.
+
+In this lab, you'll create a private repository, generate a PAT from your Git provider, and configure Argo CD to authenticate using these credentials.
+
+## 📋 Lab Tasks
+
+1.  Create a new **private** repository on your Git provider (GitHub, GitLab, etc.)
+2.  Clone the private repository to your local machine
+3.  Copy the `helm-guestbook` chart from your `argocd-example-apps` fork into the new private repository
+4.  Commit and push the chart to your private repository
+5.  Generate a Personal Access Token (PAT) from your Git provider with appropriate permissions:
+    - The token needs read access to repositories
+    - Set an appropriate expiration date
+    - **Save the token immediately** - you won't be able to see it again
+6.  In the Argo CD UI, navigate to Settings → Repositories
+7.  Connect a new repository using:
+    - Connection method: HTTPS
+    - Repository URL: The HTTPS URL of your private repository
+    - Username: Your Git provider username
+    - Password: Your Personal Access Token
+8.  Test the connection to ensure Argo CD can access the repository
+9.  Create a new Application manifest (e.g., `guestbook-private.yaml`) that references your private repository
+10. Apply the manifest and verify the application syncs successfully from the private repository
+
+## 🔍 Key Concepts
+
+**Why use a PAT instead of a password?**
+
+- PATs can be scoped with minimal permissions (principle of least privilege)
+- PATs can be revoked individually without changing your password
+- PATs can have expiration dates for automatic rotation
+- Many Git providers now require PATs for API access
+
+**Security Best Practices:**
+
+- Use read-only tokens when possible
+- Set reasonable expiration dates
+- Store tokens securely (never commit them to Git!)
+- Rotate tokens periodically
+- Revoke tokens when they're no longer needed
+
+## 📚 Helpful Resources
+
+- [Argo CD - Private Repositories Documentation](https://argo-cd.readthedocs.io/en/stable/user-guide/private-repositories/)
+- [GitHub - Creating a Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token)
+
+# Connect to Private Repos Using SSH
+
+## 🎯 Lab Goal
+
+Connect Argo CD to a private Git repository using SSH authentication with deploy keys, implementing a production-grade security pattern.
+
+## 📝 Overview & Concepts
+
+While username/PAT authentication works well, SSH deploy keys represent the gold standard for production GitOps workflows. A deploy key is a dedicated SSH key pair that grants access to a single repository, typically with read-only permissions.
+
+The advantages of deploy keys over PATs include:
+
+- **Repository-specific**: Each key only grants access to one repository
+- **No user account dependency**: Keys aren't tied to an individual's account
+- **Read-only by default**: Most Git providers enforce read-only access for deploy keys
+- **Auditable**: Deploy key usage is logged separately from user activity
+- **Long-lived**: No expiration dates to manage
+
+In this lab, you'll generate an SSH key pair specifically for Argo CD, configure your repository to accept this key, and update your application to use SSH authentication.
+
+## 📋 Lab Tasks
+
+1.  Create a new **private** repository on your Git provider (or use the one from the previous lab)
+2.  If not already done, copy the `helm-guestbook` chart into this repository and push it
+3.  Generate a new SSH key pair on your local machine:
+    - Use a descriptive name (e.g., `argocd-deploy-key`)
+    - **Do not use a passphrase** (Argo CD can't handle passphrase-protected keys)
+4.  Add the **public key** to your repository as a Deploy Key:
+    - Navigate to your repository's settings
+    - Find the Deploy Keys section
+    - Add the public key with an appropriate title
+    - Ensure it's set to **read-only** access
+5.  In the Argo CD UI, add a new repository connection:
+    - Connection method: SSH
+    - Repository URL: The SSH URL of your private repository (starts with `git@`)
+    - SSH private key: Paste the contents of your **private key** file
+6.  Test the connection to verify Argo CD can authenticate
+7.  Update your Application manifest to use the SSH repository URL
+8.  Apply the manifest and confirm the application syncs from the private repository
+
+## 📚 Helpful Resources
+
+- [Argo CD - Private Repositories Documentation](https://argo-cd.readthedocs.io/en/stable/user-guide/private-repositories/)
+- [GitHub - Managing Deploy Keys](https://docs.github.com/en/developers/overview/managing-deploy-keys)
+- [SSH Key Generation Guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent)
 
 ---
 ---
