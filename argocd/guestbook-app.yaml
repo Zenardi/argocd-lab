@@ -12,3 +12,12 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: default
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+data:
+  host: postgres
