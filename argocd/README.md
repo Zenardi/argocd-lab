@@ -120,6 +120,8 @@ In this lab, you will write an `Application` manifest from scratch. You will com
 kubectl apply -f guestbook-app.yaml
 ```
 
+![firstapp](../imgs/argocd-first-app.png)
+
 # 📚 Helpful Resources
 - [Argo CD - Getting Started Guide](https://argo-cd.readthedocs.io/en/stable/getting_started/)
 - [Helm `install` Command Documentation](https://helm.sh/docs/helm/helm_install/)
