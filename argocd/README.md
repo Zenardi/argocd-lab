@@ -29,8 +29,18 @@
     - [Part 4: Override Using `parameters`](#part-4-override-using-parameters)
   - [📚 Helpful Resources](#-helpful-resources)
   - [💡 Best Practices](#-best-practices)
+- [Automated Sync Pruning](#automated-sync-pruning)
+  - [🎯 Lab Goal](#-lab-goal-3)
+  - [📝 Overview \& Concepts](#-overview--concepts-6)
+  - [📋 Lab Tasks](#-lab-tasks-3)
+  - [📚 Helpful Resources](#-helpful-resources-1)
+- [Self-healing capability](#self-healing-capability)
+  - [🎯 Lab Goal](#-lab-goal-4)
+  - [📝 Overview \& Concepts](#-overview--concepts-7)
+  - [📋 Lab Tasks](#-lab-tasks-4)
+  - [📚 Helpful Resources](#-helpful-resources-2)
   - [💭 Reflection Questions](#-reflection-questions)
-- [📚 Helpful Resources](#-helpful-resources-1)
+- [📚 Helpful Resources](#-helpful-resources-3)
 
 
 # Install Argo on K8S Cluster with Helm
@@ -358,11 +368,70 @@ This means that `parameters` will always win over `valuesObject`, which wins ove
 - **Use `parameters`** sparingly, typically for single values that need to override everything else
 - Remember the precedence order when troubleshooting unexpected values
 
+
+# Automated Sync Pruning
+## 🎯 Lab Goal
+
+Configure an Argo CD application to sync automatically when a change is detected in Git and to prune resources that are no longer defined in the source of truth.
+
+## 📝 Overview & Concepts
+
+A truly automated GitOps workflow doesn't require manual intervention. In this lab, you will enable two crucial sync policies on your `guestbook` application: `automated` and `prune`. The `automated` policy will tell Argo CD to automatically apply changes from Git without you needing to click "Sync". The `prune` policy will ensure that if you delete a manifest from your Git repository, Argo CD will automatically delete the corresponding resource from the cluster.
+
+You will test this by first adding a new `ConfigMap` to your Helm chart and watching it get deployed automatically. Then, you will delete the `ConfigMap` manifest from the chart and observe as Argo CD prunes it from the cluster, keeping your environment perfectly in sync with Git.
+
+## 📋 Lab Tasks
+
+1.  Add a `syncPolicy` block to your `guestbook-app.yaml` manifest.
+2.  Inside the `syncPolicy`, set `automated` to an empty object `{}`.
+3.  Apply the updated manifest to the cluster to update the application's settings.
+4.  In your Helm chart, add a new manifest for a simple `ConfigMap`.
+5.  Commit and push this change to your Git repository.
+6.  Observe in the Argo CD UI as the change is automatically detected and synced without any manual clicks.
+7.  Verify with `kubectl` that the new `ConfigMap` exists.
+8.  Now, delete the `ConfigMap` manifest file from your Helm chart.
+9.  Commit and push this deletion.
+10. Observe in the Argo CD UI as the resource gets marked as non-existent, but is not immediately deleted.
+11. Enable pruning by changing the `automated` option from an empty object to `prune: true`.
+12. Apply the updated manifest to the cluster to update the application's settings.
+13. Observe in the Argo CD UI as the `prune` policy takes effect, automatically deleting the `ConfigMap` from the cluster.
+14. Verify with `kubectl` that the `ConfigMap` is gone.
+
+## 📚 Helpful Resources
+
+- [Argo CD - Automated Sync Policy](https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/)
+- [Kubernetes ConfigMaps Documentation](https://kubernetes.io/docs/concepts/configuration/configmap/)
+
+
+# Self-healing capability
+## 🎯 Lab Goal
+
+Enable and observe Argo CD's self-healing capability to **automatically revert configuration drift** and enforce Git as the absolute source of truth.
+
+## 📝 Overview & Concepts
+
+Self-healing is the ultimate enforcement mechanism in a GitOps workflow. While automated sync reacts to changes in Git, self-heal reacts to changes made directly in the cluster, correcting any drift from the desired state.
+
+In this lab, you will enable the `selfHeal` policy on your `guestbook` application. Then, you will manually change a resource in the cluster using `kubectl`. You will then observe as Argo CD's self-heal policy immediately detects this deviation and automatically reverts your change, ensuring the cluster's live state always matches what is declared in Git.
+
+## 📋 Lab Tasks
+
+1.  Add the `selfHeal: true` option to the `syncPolicy` block of your `guestbook-app.yaml` manifest.
+2.  Apply the updated manifest to the cluster.
+3.  Use the `kubectl scale` command to manually change the number of replicas for the `guestbook` deployment to a different value (e.g., `1`).
+4.  Observe in the Argo CD UI as the application becomes `OutOfSync` and is almost instantly and automatically synced back to the state defined in Git.
+5.  Verify with `kubectl` that the number of replicas has been restored to the value specified in your `Application` manifest's `valuesObject`.
+
+## 📚 Helpful Resources
+
+- [Argo CD - Automated Sync Policy (includes Self-Heal)](https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/)
+- [Kubectl `scale` Command Documentation](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#scale)
+
 ## 💭 Reflection Questions
 
-1. Why is understanding the precedence order (chart defaults → valueFiles → valuesObject → parameters) critical when troubleshooting why a particular value isn't being applied as expected?
-2. In what scenarios would you choose `valueFiles` over `valuesObject`, and what are the trade-offs between storing configuration in Git files versus inline in the Application manifest?
-3. Given that `parameters` has the highest precedence, why should you use this method sparingly rather than for all your value overrides?
+1. Why does automated sync alone not fix configuration drift (manual cluster changes), and how does self-healing complete the GitOps enforcement loop?
+2. What are the potential risks of enabling pruning in a shared namespace where multiple teams deploy applications, and how would you mitigate these risks?
+3. Under what circumstances might you want to temporarily disable self-healing in production, and what are the trade-offs of doing so?
 
 ---
 ---
