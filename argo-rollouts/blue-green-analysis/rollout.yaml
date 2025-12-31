@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: analysis-blue-green
-          image: lmacademy/simple-color-app:1.1.0
+          image: zenardi/simple-color-app:1.1.0
           env:
             - name: ERROR_RATE
               value: '0.03'

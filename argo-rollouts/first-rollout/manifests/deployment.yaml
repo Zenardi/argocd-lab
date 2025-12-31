@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: lmacademy/simple-color-app:1.0.0
+          image: zenardi/simple-color-app:1.0.0
           env:
             - name: APP_COLOR
               value: 'red'
