@@ -193,7 +193,7 @@ You will trigger an update, observing how Argo Rollouts spins up the new version
     - `rollout-bluegreen-active`: The main entry point for users.
     - `rollout-bluegreen-preview`: A service for testing the new version.
 3.  Create a `rollout.yaml` file defining a Rollout with the `blueGreen` strategy.
-    - **Image:** `lmacademy/simple-color-app:1.0.0`
+    - **Image:** `zenardi/simple-color-app:1.0.0`
     - **Env Var:** `APP_COLOR=blue`
     - **Strategy:** `blueGreen`
     - **Active Service:** `rollout-bluegreen-active`
