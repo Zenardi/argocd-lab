@@ -55,6 +55,16 @@
   - [📝 Overview \& Concepts](#-overview--concepts-5)
   - [📋 Lab Tasks](#-lab-tasks-5)
   - [📚 Helpful Resources](#-helpful-resources-5)
+- [Automated Analysis - Canary Deployment](#automated-analysis---canary-deployment)
+  - [🎯 Lab Goal](#-lab-goal-6)
+  - [📝 Overview \& Concepts](#-overview--concepts-6)
+  - [📋 Lab Tasks](#-lab-tasks-6)
+  - [📚 Helpful Resources](#-helpful-resources-6)
+- [Automated Analysis - Blue-Green Deployment](#automated-analysis---blue-green-deployment)
+  - [🎯 Lab Goal](#-lab-goal-7)
+  - [📝 Overview \& Concepts](#-overview--concepts-7)
+  - [📋 Lab Tasks](#-lab-tasks-7)
+  - [📚 Helpful Resources](#-helpful-resources-7)
 
 # Installing Argo Rollouts
 ## 🎯 Lab Goal
@@ -593,3 +603,85 @@ You will configure the rollout to look for the header `x-canary: true`. You will
 
 - [Argo Rollouts - Header Based Routing](https://argo-rollouts.readthedocs.io/en/stable/features/traffic-management/#traffic-routing-based-on-a-header-values-for-canary)
 - [Argo Rollouts - setCanaryScale](https://argo-rollouts.readthedocs.io/en/stable/features/canary/#setcanaryscale)
+
+
+# Automated Analysis - Canary Deployment
+![](../imgs/automated-analysis.png)
+## 🎯 Lab Goal
+
+Configure a self-healing deployment pipeline that automatically detects a high error rate using Prometheus metrics and aborts the rollout without human intervention.
+
+## 📝 Overview & Concepts
+
+In this lab, you will combine many concepts we've learned so far.
+
+1.  **Define Success:** You will create an `AnalysisTemplate` that queries your local Prometheus instance. It will check if the application's Global Success Rate is above 90%.
+2.  **Configure Automation:** You will attach this template to your `Rollout` strategy to run as a step in our canary release.
+3.  **Simulate Failure:** You will generate synthetic traffic using a simple script. Then, you will deploy a "Bad" version of the application configured to throw random 500 errors.
+4.  **Observe Self-Healing:** You will watch as Argo Rollouts detects the drop in success rate, marks the analysis as `Failed`, and automatically aborts the rollout, scaling the new faulty pods down to zero and restoring 100% traffic to the stable version.
+
+## 📋 Lab Tasks
+
+1.  **Setup:**
+    1.  Create the `analysis-lab` namespace.
+    2.  Configure the Pod template in the provided `rollout.yaml`, as well as the services within `services.yaml` with the necessary annotations for Prometheus to start scraping metrics. Metrics are exposed on the `/metrics` endpoint and the application is running on port `3000`.
+    3.  Deploy the Rollout and the services.
+2.  **Start Traffic Generation:** Run the provided `test-requests.sh` script in a separate terminal to generate continuous traffic for the `rollout-analysis` service.
+    1.  Observe how metrics soon start showing up in the Prometheus dashboard.
+3.  **Define Analysis:** Create an `analysis.yaml` file defining an `AnalysisTemplate` named `success-rate` in the `analysis-lab` namespace. It should query Prometheus to calculate the success rate (non-500 requests / total requests). You can use the following query for that:
+    ```
+    sum(rate(http_request_duration_seconds_count{code!~"[45].*", service="{{args.service-name}}"}[1m]))
+    /
+    sum(rate(http_request_duration_seconds_count{service="{{args.service-name}}"}[1m]))
+    ```
+4.  Update your `rollout.yaml` to include an `analysis` step in the canary strategy.
+    - Use the `analysis-lab` namespace.
+    - Pause for 3 minutes after the first weight increase. This will allow for metrics to start flowing in.
+    - Add an analysis step after this first increase referencing the `success-rate` analysis template.
+5.  **Deploy the "Bad" Version:** Update `rollout.yaml` to set the `ERROR_RATE` environment variable to `0.5` (50% errors). Apply this change.
+6.  **Watch the Dashboard:** Observe the rollout pause, the `AnalysisRun` start, and then quickly fail as Prometheus reports the errors.
+7.  **Verify Rollback:** Confirm the status becomes `Degraded` (which means it aborted) and the Stable pods are taking 100% of the traffic again.
+
+## 📚 Helpful Resources
+
+- [Argo Rollouts - Analysis Configuration](https://argo-rollouts.readthedocs.io/en/stable/features/analysis/)
+- [PromQL Basics](https://prometheus.io/docs/prometheus/latest/querying/basics/)
+
+# Automated Analysis - Blue-Green Deployment
+## 🎯 Lab Goal
+
+Perform a Blue-Green deployment that automatically validates the new version (Preview) using an `AnalysisRun` _before_ switching production traffic (Active) to it.
+
+## 📝 Overview & Concepts
+
+In a standard Blue-Green deployment, the new version (Green) is deployed alongside the old version (Blue). Usually, a human checks the "Preview" service and then manually promotes the rollout.
+
+With **Pre-Promotion Analysis**, we can automate this. Argo Rollouts will:
+
+1.  Deploy the new version (Green).
+2.  Update the `previewService` to point to Green.
+3.  **Automatically start an AnalysisRun**.
+4.  **Block** the promotion to `activeService` until the analysis passes.
+5.  If the analysis succeeds, it automatically switches the `activeService` to Green.
+6.  If the analysis fails, it aborts the rollout.
+
+## 📋 Lab Tasks
+
+1.  **Define Services:** Create two services:
+    - `blue-green-active`: For production traffic.
+    - `blue-green-preview`: For the new version.
+    - _Remember to add Prometheus annotations!_
+2.  **Define Analysis:** Create an `analysis.yaml` (similar to the previous lab) that checks for a high success rate.
+3.  **Define Rollout:** Create a `rollout.yaml` using the `blueGreen` strategy.
+    - Configure `activeService` and `previewService`.
+    - Add a `prePromotionAnalysis` block that references your analysis template.
+    - Pass the **preview service name** as an argument to the analysis.
+4.  **Deploy v1:** Apply the manifests and verify the active service points to v1.
+5.  **Deploy v2:** Change the color and set an appropriate error rate to deploy a new version.
+6.  **Generate Traffic:** **Crucial Step!** The analysis checks metrics on the _preview_ service. You must manually generate traffic to the preview service (using port-forwarding) so Prometheus has data to scrape.
+7.  **Observe:** Watch the rollout wait for the analysis. Once the analysis passes, observe the automatic promotion.
+
+## 📚 Helpful Resources
+
+- [Argo Rollouts - BlueGreen Strategy](https://argo-rollouts.readthedocs.io/en/stable/features/bluegreen/)
+- [Argo Rollouts - Pre-Promotion Analysis](https://argo-rollouts.readthedocs.io/en/stable/features/bluegreen/#prepromotionanalysis)
